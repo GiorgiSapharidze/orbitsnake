@@ -14,6 +14,7 @@
     justify-content: center;
     background: #111214;
     gap: 12px;
+    font-family: sans-serif;
   }
   canvas {
     background: #1a1b1e;
@@ -27,6 +28,149 @@
     font-size: 13px;
     letter-spacing: 0.2px;
   }
+  #leaderboard-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(13, 14, 16, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.1s ease;
+    z-index: 999;
+  }
+  #leaderboard-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .lb-modal {
+    background: #16171a;
+    border: 1px solid #2a2c33;
+    border-radius: 4px;
+    width: 200px;
+    padding: 24px;
+    color: #ececed;
+    text-align: center;
+  }
+  .lb-title {
+    font-size: 16px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.35);
+    margin: 0 0 16px 0;
+    font-weight: 600;
+  }
+  .lb-list {
+    margin-bottom: 10px;
+  }
+  .lb-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 4px;
+    font-size: 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .lb-row:last-child {
+    border-bottom: none;
+  }
+  .lb-rank {
+    color: rgba(255,255,255,0.3);
+    margin-right: 6px;
+  }
+  .lb-name-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .lb-name {
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .lb-badge {
+    font-size: 10px;
+    font-weight: 900;
+    padding: 2px 3px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    line-height: 1;
+  }
+  .lb-badge.creator {
+    background: #184a1071;
+    color: rgb(152, 205, 138);
+  }
+  .lb-badge.yt {
+    background: rgb(255, 249, 246);
+    color: #ff2b01;
+    border: 1px solid rgba(224, 85, 58, 0.3);
+  }
+  .lb-badge.staff {
+    background: rgb(255, 249, 246);
+    color: #f1c40f;
+    border: 1px solid rgba(241, 196, 15, 0.3);
+  }
+  .lb-val {
+    color: #2bbf8f;
+    font-weight: 600;
+  }
+  .lb-input-zone {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px dashed rgba(255,255,255,0.1);
+  }
+  .lb-input-label {
+    font-size: 12px;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .lb-field-group {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+  .lb-input {
+    background: #202226;
+    border: 1px solid #33363f;
+    border-radius: 2px;
+    color: #fff;
+    font-size: 16px;
+    font-weight: bold;
+    text-transform: uppercase;
+    text-align: center;
+    width: 50px;
+    padding: 8px;
+    letter-spacing: 2px;
+  }
+  .lb-input:focus {
+    outline: none;
+    border-color: rgba(255,255,255,0.35);
+  }
+  .lb-btn {
+    background: rgba(255,255,255,0.35);
+    border: none;
+    color: #fff;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 2px;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+  .lb-btn:hover {
+    background: rgba(185, 184, 184, 0.35);
+  }
+  .lb-hint {
+    font-size: 11px;
+    color: rgba(255,255,255,0.3);
+    margin-top: 16px;
+  }
 </style>
 </head>
 <body>
@@ -34,8 +178,120 @@
 <canvas id="c" width="440" height="440"></canvas>
 <footer>made with love by Gio</footer>
 
-<script>
-(function(){
+<div id="leaderboard-overlay">
+  <div class="lb-modal">
+    <div class="lb-title">Leaderboard</div>
+    <div id="lb-list" class="lb-list">Loading runs...</div>
+    
+    <div id="lb-submit-zone" class="lb-input-zone" style="display: none;">
+      <div class="lb-input-label">New High Score! Enter Initials</div>
+      <div class="lb-field-group">
+        <input type="text" id="lb-initials" class="lb-input" maxlength="3" placeholder="AAA" autocomplete="off">
+        <button id="lb-submit-btn" class="lb-btn">Submit</button>
+      </div>
+    </div>
+    <div class="lb-hint">Press SPACE to close and restart</div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCLmSl69t7C0HNjRUDDL5BtfSUaN5EqNBs",
+  authDomain: "orbitsnake-4d784.firebaseapp.com",
+  projectId: "orbitsnake-4d784",
+  storageBucket: "orbitsnake-4d784.firebasestorage.app",
+  messagingSenderId: "421624885871",
+  appId: "1:421624885871:web:93d1d772b405cb4e92139a",
+  measurementId: "G-6D9PPZ61XF"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const scoresCol = collection(db, "leaderboard");
+
+const overlay = document.getElementById('leaderboard-overlay');
+const lbList = document.getElementById('lb-list');
+const submitZone = document.getElementById('lb-submit-zone');
+const initialsInput = document.getElementById('lb-initials');
+const submitBtn = document.getElementById('lb-submit-btn');
+
+let scoreSaved = false;
+
+const BADGE_MAP = {
+  'creator': '<span class="lb-badge creator">DEV</span>',
+  'youtuber': '<span class="lb-badge yt">YT</span>',
+  'staff': '<span class="lb-badge staff">STAFF</span>'
+};
+
+async function showLeaderboard(allowSubmit) {
+  overlay.classList.add('active');
+  submitZone.style.display = allowSubmit ? 'block' : 'none';
+  if (allowSubmit) {
+    initialsInput.value = '';
+    initialsInput.focus();
+  }
+  
+  try {
+    const q = query(scoresCol, orderBy("score", "desc"), limit(5));
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      lbList.innerHTML = '<div style="color:rgba(255,255,255,0.4); font-size:13px;">No entries yet</div>';
+      return;
+    }
+    let html = '';
+    let rank = 1;
+    snap.forEach(doc => {
+      const d = doc.data();
+      const cleanName = (d.name || '---').replace(/[&<>'"]/g, t => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[t]||t));
+      
+      let badgeHtml = '';
+      if (d.role && BADGE_MAP[d.role.toLowerCase()]) {
+        badgeHtml = BADGE_MAP[d.role.toLowerCase()];
+      }
+
+      html += `
+        <div class="lb-row">
+          <div class="lb-name-wrapper">
+            <span class="lb-rank">#0${rank}</span>
+            <span class="lb-name">${cleanName}</span>
+            ${badgeHtml}
+          </div>
+          <span class="lb-val">${d.score}</span>
+        </div>`;
+      rank++;
+    });
+    lbList.innerHTML = html;
+  } catch (e) {
+    lbList.innerHTML = '<div style="color:#e0553a; font-size:13px;">Failed to load data</div>';
+  }
+}
+
+submitBtn.addEventListener('click', submitScore);
+initialsInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitScore();
+  e.stopPropagation();
+});
+
+async function submitScore() {
+  let val = initialsInput.value.trim().toUpperCase().substring(0, 3);
+  if (!val) return;
+  submitZone.style.display = 'none';
+  lbList.innerHTML = '<div style="color:rgba(255,255,255,0.4); font-size:13px;">Saving run...</div>';
+  try {
+    await addDoc(scoresCol, {
+      name: val,
+      score: score,
+      timestamp: new Date()
+    });
+  } catch(e) {
+    console.error(e);
+  }
+  showLeaderboard(false);
+}
+
 const canvas=document.getElementById('c');
 const ctx=canvas.getContext('2d');
 const cx=220, cy=220;
@@ -104,7 +360,8 @@ function growRingsIfNeeded(){
 
 function reset(){
   angle=0; radius=100; targetRadius=100; trail=[]; score=0; gameOver=false; frame=0;
-  maxR=baseMaxR; zoom=1; targetZoom=1;
+  maxR=baseMaxR; zoom=1; targetZoom=1; scoreSaved = false;
+  overlay.classList.remove('active');
   obstacles=[];
   foods=[];
   for(let i=0;i<5;i++) spawnObstacle();
@@ -119,7 +376,13 @@ function angleDist(a,b){
 }
 
 function update(){
-  if(gameOver) return;
+  if(gameOver) {
+    if(!scoreSaved) {
+      scoreSaved = true;
+      showLeaderboard(score > 0);
+    }
+    return;
+  }
   frame++;
   radius += (targetRadius-radius)*0.25;
   if(Math.abs(targetRadius-radius) < 0.5) radius = targetRadius;
@@ -243,7 +506,6 @@ window.addEventListener('keydown', (e)=>{
   if(e.key==='ArrowDown'){ changeRadius(1); e.preventDefault(); }
   if(e.code==='Space'){ reset(); e.preventDefault(); }
 });
-})();
 </script>
 
 </body>
