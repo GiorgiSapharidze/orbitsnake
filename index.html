@@ -271,8 +271,15 @@ async function showLeaderboard(allowSubmit) {
 
 submitBtn.addEventListener('click', submitScore);
 initialsInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') submitScore();
-  e.stopPropagation();
+  if (e.key === 'Enter') {
+    submitScore();
+    e.stopPropagation();
+  }
+  if (e.code === 'Space') {
+    initialsInput.blur();
+    reset();
+    e.preventDefault();
+  }
 });
 
 async function submitScore() {
