@@ -92,25 +92,26 @@
     text-transform: uppercase;
   }
   .lb-badge {
-    font-size: 10px;
-    font-weight: 900;
-    padding: 2px 3px;
-    border-radius: 2px;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 5px;
+    border-radius: 3px;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
     line-height: 1;
   }
   .lb-badge.creator {
-    background: #184a1071;
-    color: rgb(152, 205, 138);
+    background: rgba(76, 158, 237, 0.15);
+    color: #4c9eed;
+    border: 1px solid rgba(76, 158, 237, 0.3);
   }
   .lb-badge.yt {
-    background: rgb(255, 249, 246);
-    color: #ff2b01;
+    background: rgba(224, 85, 58, 0.15);
+    color: #e0553a;
     border: 1px solid rgba(224, 85, 58, 0.3);
   }
   .lb-badge.staff {
-    background: rgb(255, 249, 246);
+    background: rgba(241, 196, 15, 0.15);
     color: #f1c40f;
     border: 1px solid rgba(241, 196, 15, 0.3);
   }
@@ -186,7 +187,7 @@
     <div id="lb-submit-zone" class="lb-input-zone" style="display: none;">
       <div class="lb-input-label">New High Score! Enter Initials</div>
       <div class="lb-field-group">
-        <input type="text" id="lb-initials" class="lb-input" maxlength="3" placeholder="AAA" autocomplete="off">
+        <input type="text" id="lb-initials" class="lb-input" maxlength="3" placeholder="GIO" autocomplete="off">
         <button id="lb-submit-btn" class="lb-btn">Submit</button>
       </div>
     </div>
@@ -490,12 +491,22 @@ function draw(){
   }
 }
 
-function loop(){
-  update();
+let lastTime = performance.now();
+const timestep = 1000 / 60;
+let accumulator = 0;
+
+function loop(currentTime){
+  accumulator += currentTime - lastTime;
+  lastTime = currentTime;
+  if(accumulator > 100) accumulator = 100;
+  while(accumulator >= timestep){
+    update();
+    accumulator -= timestep;
+  }
   draw();
   requestAnimationFrame(loop);
 }
-loop();
+requestAnimationFrame(loop);
 
 function changeRadius(dir){
   targetRadius = Math.max(minR, Math.min(maxR, targetRadius + dir*ringStep));
