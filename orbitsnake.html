@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orbit Snake</title>
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #111214;
+    gap: 12px;
+  }
+  canvas {
+    background: #1a1b1e;
+    border-radius: 16px;
+    max-width: 92vw;
+    touch-action: none;
+  }
+  footer {
+    color: rgba(255,255,255,0.35);
+    font-family: sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.2px;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="c" width="440" height="440"></canvas>
+<footer>made with love by Gio</footer>
+
+<script>
+(function(){
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const cx=220, cy=220;
+let angle=0, angularSpeed=0.028;
+let radius=100, targetRadius=100;
+const minR=40, baseMaxR=180, ringStep=20;
+let maxR=baseMaxR;
+let zoom=1, targetZoom=1;
+let trail=[];
+let trailLen=6;
+let obstacles=[];
+let foods=[];
+let score=0;
+let gameOver=false;
+let frame=0;
+
+function randRadius(){ return minR + Math.floor(Math.random()* ((maxR-minR)/ringStep)) * ringStep; }
+
+function randFreeRadius(){
+  const usedRings = obstacles.map(o=>o.r);
+  const allRings = [];
+  for(let r=minR;r<=maxR;r+=ringStep) allRings.push(r);
+  const free = allRings.filter(r=>!usedRings.includes(r));
+  if(free.length===0) return randRadius();
+  return free[Math.floor(Math.random()*free.length)];
+}
+
+function spawnObstacle(){
+  const r = randFreeRadius();
+  const speed = (Math.random()<0.5?1:-1) * (0.006 + Math.random()*0.014);
+  const a = Math.random()*Math.PI*2;
+  const arc = 0.5 + Math.random()*0.5;
+  obstacles.push({r, speed, a, arc});
+}
+
+function foodCountForScore(s){
+  return 1 + Math.floor(s/4);
+}
+
+function occupiedFoodRings(){
+  return foods.map(f=>f.r);
+}
+
+function spawnFood(){
+  const usedRings = occupiedFoodRings();
+  const allRings = [];
+  for(let r=minR;r<=maxR;r+=ringStep) allRings.push(r);
+  const free = allRings.filter(r=>!usedRings.includes(r));
+  const r = free.length ? free[Math.floor(Math.random()*free.length)] : randRadius();
+  foods.push({ r, a: Math.random()*Math.PI*2 });
+}
+
+function ensureFoodCount(){
+  const needed = foodCountForScore(score);
+  while(foods.length < needed) spawnFood();
+}
+
+function growRingsIfNeeded(){
+  const targetMaxR = baseMaxR + Math.floor(score/3)*ringStep;
+  if(targetMaxR > maxR){
+    maxR = targetMaxR;
+    spawnObstacle();
+  }
+  targetZoom = baseMaxR / maxR;
+}
+
+function reset(){
+  angle=0; radius=100; targetRadius=100; trail=[]; score=0; gameOver=false; frame=0;
+  maxR=baseMaxR; zoom=1; targetZoom=1;
+  obstacles=[];
+  foods=[];
+  for(let i=0;i<5;i++) spawnObstacle();
+  ensureFoodCount();
+}
+reset();
+
+function angleDist(a,b){
+  let d = Math.abs(a-b) % (Math.PI*2);
+  if(d>Math.PI) d = Math.PI*2 - d;
+  return d;
+}
+
+function update(){
+  if(gameOver) return;
+  frame++;
+  radius += (targetRadius-radius)*0.25;
+  if(Math.abs(targetRadius-radius) < 0.5) radius = targetRadius;
+  angle += angularSpeed;
+  trail.unshift({a:angle, r:radius});
+  if(trail.length>trailLen) trail.pop();
+
+  zoom += (targetZoom-zoom)*0.06;
+
+  obstacles.forEach(o=>{ o.a += o.speed; });
+  if(frame%260===0 && obstacles.length<8+Math.floor(score/3)) spawnObstacle();
+
+  obstacles.forEach(o=>{
+    if(Math.abs(o.r-radius) < 12){
+      if(angleDist(angle, o.a) < o.arc/2){ gameOver=true; }
+    }
+  });
+
+  for(let i=foods.length-1;i>=0;i--){
+    const f=foods[i];
+    if(Math.abs(f.r-radius)<12 && angleDist(angle,f.a)<0.12){
+      score++;
+      trailLen += 3;
+      foods.splice(i,1);
+    }
+  }
+  growRingsIfNeeded();
+  ensureFoodCount();
+}
+
+function draw(){
+  ctx.clearRect(0,0,440,440);
+  ctx.save();
+  ctx.translate(cx,cy);
+  ctx.scale(zoom,zoom);
+  ctx.translate(-cx,-cy);
+
+  for(let r=minR;r<=maxR;r+=ringStep){
+    ctx.beginPath();
+    ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.strokeStyle='rgba(255,255,255,0.08)';
+    ctx.lineWidth=1/zoom;
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.arc(cx,cy,4,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,0.3)';
+  ctx.fill();
+
+  obstacles.forEach(o=>{
+    ctx.beginPath();
+    ctx.arc(cx,cy,o.r, o.a-o.arc/2, o.a+o.arc/2);
+    ctx.strokeStyle='#e0553a';
+    ctx.lineWidth=6;
+    ctx.lineCap='round';
+    ctx.stroke();
+  });
+
+  foods.forEach(f=>{
+    const fx=cx+Math.cos(f.a)*f.r, fy=cy+Math.sin(f.a)*f.r;
+    ctx.beginPath();
+    ctx.arc(fx,fy,7,0,Math.PI*2);
+    ctx.fillStyle='#2bbf8f';
+    ctx.fill();
+  });
+
+  if(trail.length>1){
+    ctx.beginPath();
+    trail.forEach((t,i)=>{
+    const x=cx+Math.cos(t.a)*t.r, y=cy+Math.sin(t.a)*t.r;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle='#4c9eed';
+    ctx.lineWidth=7;
+    ctx.lineCap='round';
+    ctx.lineJoin='round';
+    ctx.stroke();
+  }
+
+  const head=trail[0];
+  if(head){
+    const hx=cx+Math.cos(head.a)*head.r, hy=cy+Math.sin(head.a)*head.r;
+    ctx.beginPath();
+    ctx.arc(hx,hy,8,0,Math.PI*2);
+    ctx.fillStyle='#7db8ee';
+    ctx.fill();
+  }
+
+  ctx.restore();
+
+  ctx.fillStyle='rgba(255,255,255,0.7)';
+  ctx.font='500 14px sans-serif';
+  ctx.textAlign='left';
+  ctx.fillText('score '+score, 14, 24);
+
+  if(gameOver){
+    ctx.fillStyle='rgba(0,0,0,0.6)';
+    ctx.fillRect(0,0,440,440);
+    ctx.fillStyle='#fff';
+    ctx.font='500 20px sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText('game over — score '+score, 220, 210);
+    ctx.font='400 14px sans-serif';
+    ctx.fillText('press space to restart', 220, 236);
+  }
+}
+
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+
+function changeRadius(dir){
+  targetRadius = Math.max(minR, Math.min(maxR, targetRadius + dir*ringStep));
+}
+
+window.addEventListener('keydown', (e)=>{
+  if(e.key==='ArrowUp'){ changeRadius(-1); e.preventDefault(); }
+  if(e.key==='ArrowDown'){ changeRadius(1); e.preventDefault(); }
+  if(e.code==='Space'){ reset(); e.preventDefault(); }
+});
+})();
+</script>
+
+</body>
+</html>
