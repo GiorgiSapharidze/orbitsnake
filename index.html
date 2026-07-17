@@ -519,8 +519,8 @@ function changeRadius(dir){
 }
 
 window.addEventListener('keydown', (e)=>{
-  if(e.key==='ArrowUp'){ changeRadius(-1); e.preventDefault(); }
-  if(e.key==='ArrowDown'){ changeRadius(1); e.preventDefault(); }
+  if(e.key==='ArrowDown'){ changeRadius(-1); e.preventDefault(); }
+  if(e.key==='ArrowUp'){ changeRadius(1); e.preventDefault(); }
   if(e.code==='Space'){ reset(); e.preventDefault(); }
 });
 </script>
